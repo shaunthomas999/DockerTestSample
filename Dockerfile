@@ -1,55 +1,26 @@
-###
-#
-# Dockerfile for phusion/passenger-customizable
-# Author : Shaun Thomas
-# Date : 21 Aug 2014
-#
-###
+FROM node:0.10.30
 
-# Base image
-# Info - https://registry.hub.docker.com/u/phusion/passenger-customizable/
-FROM phusion/passenger-customizable:0.9.11
+RUN apt-get -y update
+RUN apt-get -y install procps
 
-# Set correct environment variables.
-ENV HOME /root
+RUN curl https://install.meteor.com/ | sh
+RUN npm install -g meteorite
 
-# Update apt cache
-RUN apt-get update
+RUN apt-get -y install coffeescript
 
-# Use baseimage-docker's init process.
-CMD ["/sbin/my_init"]
+RUN mkdir -p /home/app/node_modules && cd /home/app/node_modules && npm install libxmljs exec-sync path && cd .. && mrt create src && cd src && rm src.*
 
-## Features to install
-# Build system and git.
-RUN /build/utilities.sh
+ADD src/ /home/app/src/
 
-# Python support.
-#IMP# Error for below script
-RUN /build/python.sh
-#RUN apt-get -y install python
+RUN cd /home/app/src && mrt add coffeescript
 
-# Node.js and Meteor support.
-RUN /build/nodejs.sh
+WORKDIR /home/app
 
-# Enable Nginx and Passenger
-RUN rm -f /etc/service/nginx/down
+ADD Makefile /home/app/
 
-# Install the insecure key permanently - Only for temporary development or demo environments
-#IMP# Delete below line for production
-RUN /usr/sbin/enable_insecure_key
+CMD make
 
-# Deploy the Nginx configuration file for webapp
-ADD webapp.conf /etc/nginx/sites-enabled/webapp.conf
+ENV ROOT_URL http://127.0.0.1
+ENV PORT 3000
 
-# <App> specific instructions
-RUN cd /tmp && npm install libxmljs exec-sync path
-RUN mkdir -p /home/app/webapp && cp -a /tmp/node_modules /home/app/webapp/
-
-WORKDIR /home/app/webapp
-
-ADD src/ /home/app/webapp/src/
-
-WORKDIR src
-
-# Clean up APT when done.
-RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+EXPOSE 3000
